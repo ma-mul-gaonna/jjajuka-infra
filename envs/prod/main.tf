@@ -16,6 +16,7 @@ provider "aws" {
 module "vpc" {
   source = "../../modules/vpc"
 
+  app                  = var.app
   env                  = var.env
   vpc_cidr             = var.vpc_cidr
   public_subnet_cidrs  = var.public_subnet_cidrs
