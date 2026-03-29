@@ -1,7 +1,7 @@
 # -- rds subnet group
 resource "aws_db_subnet_group" "this" {
   name       = "${var.app}-${var.env}-rds-subnet-group"
-  subnet_ids = module.vpc.private_subnet_ids
+  subnet_ids = var.private_subnet_ids
 
   tags = {
     Name = "${var.app}-${var.env}-rds-subnet-group"
@@ -44,7 +44,7 @@ resource "aws_security_group" "db" {
     from_port   = var.database_port
     to_port     = var.database_port
     protocol    = local.tcp_protocol
-    cidr_blocks = local.all_ips
+    security_groups = [var.app_security_group_id]
   }
 
   tags = merge(

@@ -33,6 +33,10 @@ variable "multi_az" {
   default = false
 }
 
+variable "app_security_group_id" {
+  type = string
+}
+
 # -- vpc
 variable "vpc_id" {
   type = string

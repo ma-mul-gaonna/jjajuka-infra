@@ -28,6 +28,23 @@ variable "azs" {
   type = list(string)
 }
 
+# -- EC2
+variable "ami" {
+  type = string
+}
+
+variable "frontend_instance_type" {
+  type = string
+}
+
+variable "backend_instance_type" {
+  type = string
+}
+
+variable "ai_instance_type" {
+  type = string
+}
+
 # -- RDS
 variable "database_port" {
   type = string
