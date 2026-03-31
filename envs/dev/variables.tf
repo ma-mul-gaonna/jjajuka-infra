@@ -45,6 +45,10 @@ variable "ai_instance_type" {
   type = string
 }
 
+variable "backend_port" {
+  type = number
+}
+
 # -- RDS
 variable "database_port" {
   type = string

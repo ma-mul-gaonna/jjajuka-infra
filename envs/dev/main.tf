@@ -40,6 +40,7 @@ module "backend" {
   vpc_id            = module.vpc.vpc_id
   public_subnet_ids = module.vpc.public_subnet_ids
 
+  backend_port           = var.backend_port
   ami                    = var.ami
   frontend_instance_type = var.frontend_instance_type
   backend_instance_type  = var.backend_instance_type
