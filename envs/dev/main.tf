@@ -31,6 +31,11 @@ module "vpc" {
   azs                  = var.azs
 }
 
+data "aws_acm_certificate" "jjajuka" {
+  domain   = "jjajuka.site"
+  statuses = ["ISSUED"]
+}
+
 module "backend" {
   source = "../../modules/backend"
 
@@ -45,6 +50,8 @@ module "backend" {
   frontend_instance_type = var.frontend_instance_type
   backend_instance_type  = var.backend_instance_type
   ai_instance_type       = var.ai_instance_type
+
+  certificate_arn = data.aws_acm_certificate.jjajuka.arn
 }
 
 module "database" {

@@ -25,8 +25,7 @@ variable "ai_instance_type" {
 }
 
 variable "backend_port" {
-  type    = number
-  default = 8080
+  type = number
 }
 
 variable "ai_port" {
@@ -41,5 +40,10 @@ variable "vpc_id" {
 
 variable "public_subnet_ids" {
   type = list(string)
+}
+
+variable "certificate_arn" {
+  type        = string
+  description = "HTTPS 리스너에 사용할 ACM 인증서 ARN"
 }
 
