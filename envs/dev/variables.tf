@@ -49,6 +49,10 @@ variable "backend_port" {
   type = number
 }
 
+variable "user_data" {
+  type = string
+}
+
 # -- RDS
 variable "database_port" {
   type = string

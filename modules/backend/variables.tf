@@ -47,3 +47,7 @@ variable "certificate_arn" {
   description = "HTTPS 리스너에 사용할 ACM 인증서 ARN"
 }
 
+variable "user_data" {
+  type = string
+}
+

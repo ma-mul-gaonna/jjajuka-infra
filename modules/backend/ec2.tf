@@ -99,6 +99,7 @@ resource "aws_instance" "frontend" {
   instance_type        = var.frontend_instance_type
   subnet_id            = var.public_subnet_ids[0]
   iam_instance_profile = aws_iam_instance_profile.ec2_ssm.name
+  user_data            = var.user_data
 
   vpc_security_group_ids = [aws_security_group.frontend.id]
   tags = merge(local.tags, { Name = "${local.prefix}-frontend" })
@@ -110,6 +111,7 @@ resource "aws_instance" "app" {
   instance_type        = var.backend_instance_type
   subnet_id            = var.public_subnet_ids[0]
   iam_instance_profile = aws_iam_instance_profile.ec2_ssm.name
+  user_data            = var.user_data
 
   vpc_security_group_ids = [aws_security_group.app.id]
   tags = merge(local.tags, { Name = "${local.prefix}-app" })
@@ -121,6 +123,7 @@ resource "aws_instance" "ai" {
   instance_type        = var.ai_instance_type
   subnet_id            = var.public_subnet_ids[0]
   iam_instance_profile = aws_iam_instance_profile.ec2_ssm.name
+  user_data            = var.user_data
 
   vpc_security_group_ids = [aws_security_group.ai.id]
   tags = merge(local.tags, { Name = "${local.prefix}-ai" })

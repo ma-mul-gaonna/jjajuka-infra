@@ -52,6 +52,7 @@ module "backend" {
   ai_instance_type       = var.ai_instance_type
 
   certificate_arn = data.aws_acm_certificate.jjajuka.arn
+  user_data       = var.user_data
 }
 
 module "database" {
