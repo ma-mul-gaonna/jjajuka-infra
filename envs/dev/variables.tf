@@ -74,3 +74,14 @@ variable "multi_az" {
   type    = bool
   default = false
 }
+
+# -- ssm
+variable "discord_webhook_url" {
+  type      = string
+  sensitive = true
+}
+
+variable "google_api_key" {
+  type      = string
+  sensitive = true
+}

@@ -13,6 +13,13 @@ provider "aws" {
   region = "ap-northeast-2"
 }
 
+module "ecr" {
+  source = "../../modules/ecr"
+
+  app = var.app
+  env = var.env
+}
+
 module "vpc" {
   source = "../../modules/vpc"
 
