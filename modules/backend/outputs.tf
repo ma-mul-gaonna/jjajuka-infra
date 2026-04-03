@@ -13,3 +13,7 @@ output "instance_ids" {
     ai       = aws_instance.ai.id
   }
 }
+
+output "alb_dns_name" {
+  value = aws_lb.this.dns_name
+}
