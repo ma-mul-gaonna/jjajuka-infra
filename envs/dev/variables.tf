@@ -91,3 +91,7 @@ variable "google_api_key" {
   type      = string
   sensitive = true
 }
+
+variable "ai_base_url" {
+  type = string
+}

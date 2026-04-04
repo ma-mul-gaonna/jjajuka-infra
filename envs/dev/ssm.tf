@@ -35,6 +35,12 @@ resource "aws_ssm_parameter" "discord_webhook_url" {
   value = var.discord_webhook_url
 }
 
+resource "aws_ssm_parameter" "ai_base_url" {
+  name  = "/${var.app}/${var.env}/AI_BASE_URL"
+  type  = "String"
+  value = var.ai_base_url
+}
+
 # -- ai
 resource "aws_ssm_parameter" "google_api_key" {
   name  = "/${var.app}/${var.env}/GOOGLE_API_KEY"
