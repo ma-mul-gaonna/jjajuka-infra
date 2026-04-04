@@ -7,8 +7,17 @@
 
 ## Architecture
 
-> 아키텍처 다이어그램 이미지를 여기에 삽입해주세요.
-> 예시: `![Architecture](./docs/architecture.png)`
+### 인프라 아키텍처
+
+<img width="1103" height="894" alt="Image" src="https://github.com/user-attachments/assets/6eb15537-188c-438e-af26-7cb9c4b485c5" />
+
+### 네트워크 및 보안 구조
+
+<img width="410" height="533" alt="Image" src="https://github.com/user-attachments/assets/9853c518-92ec-407c-bc23-da2e0115e4f5" />
+
+### CI/CD 파이프라인
+
+<img width="285" height="282" alt="Image" src="https://github.com/user-attachments/assets/466ccbc6-fcd6-4ba5-93cb-3d0301fd98cd" />
 
 **트래픽 흐름**
 
@@ -25,18 +34,18 @@ User
 
 ## Tech Stack
 
-| Category | Tool / Service |
-|---|---|
-| IaC | Terraform >= 1.10.0 |
-| Cloud | AWS (ap-northeast-2) |
-| Compute | EC2 (Amazon Linux 2023) |
-| Container | Docker, Amazon ECR |
-| Load Balancer | ALB (Application Load Balancer) |
-| Database | RDS MySQL |
-| DNS / TLS | Route 53, ACM (Wildcard Certificate) |
-| Secret Management | SSM Parameter Store |
-| Access | AWS Systems Manager (Session Manager, no SSH) |
-| Monitoring | CloudWatch Alarms, SNS |
+| Category          | Tool / Service                                |
+| ----------------- | --------------------------------------------- |
+| IaC               | Terraform >= 1.10.0                           |
+| Cloud             | AWS (ap-northeast-2)                          |
+| Compute           | EC2 (Amazon Linux 2023)                       |
+| Container         | Docker, Amazon ECR                            |
+| Load Balancer     | ALB (Application Load Balancer)               |
+| Database          | RDS MySQL                                     |
+| DNS / TLS         | 가비아, ACM (Wildcard Certificate)            |
+| Secret Management | SSM Parameter Store                           |
+| Access            | AWS Systems Manager (Session Manager, no SSH) |
+| Monitoring        | CloudWatch Alarms, SNS                        |
 
 ---
 
@@ -65,14 +74,17 @@ jjajuka-infra/
 ## Modules
 
 ### `vpc`
+
 - VPC, Internet Gateway, Public/Private 서브넷 2개씩, 라우팅 테이블 구성
 - Public 서브넷: ALB, EC2 배치
 - Private 서브넷: RDS 배치 (인터넷 접근 차단)
 
 ### `ecr`
+
 - `frontend`, `backend`, `ai` 3개 레포지토리를 `for_each`로 생성
 
 ### `backend`
+
 - EC2 인스턴스 3개 (Frontend / Backend / AI)
 - ALB: HTTP(80) → HTTPS(301) 리다이렉트, HTTPS(443) 리스너
 - ALB 라우팅 룰: `/api/*` → Backend, 그 외 → Frontend
@@ -86,15 +98,18 @@ jjajuka-infra/
 - EC2 접속: SSH 키 없이 SSM Session Manager로만 접근
 
 ### `database`
+
 - RDS MySQL, Private 서브넷 배치
 - Security Group: Backend EC2 SG에서만 인바운드 허용
 - DB 접속 정보는 SSM Parameter Store에 저장 (평문 환경변수 미사용)
 
 ### `acm`
+
 - `jjajuka.site`, `*.jjajuka.site` 와일드카드 인증서 발급 (DNS 검증)
 - `global` 환경에서 한 번 발급 후, 각 환경에서 `data` 소스로 참조
 
 ### `monitoring`
+
 - SNS Topic + 이메일 구독으로 알림 수신 채널 구성
 - EC2 알람 (frontend / app / ai 인스턴스 공통):
   - CPU 사용률 > 80% (5분 평균, 2회 연속)
@@ -109,21 +124,22 @@ jjajuka-infra/
 
 ## Environments
 
-| Resource | dev | prod |
-|---|---|---|
-| VPC CIDR | 10.0.0.0/16 | 10.1.0.0/16 |
-| ECR | ✅ | ✅ |
-| ALB + EC2 | ✅ | ✅ |
-| RDS MySQL | ✅ | ✅ |
-| SSM Parameters | ✅ | ✅ |
-| CloudWatch Alarms + SNS | ✅ | ✅ |
-| Multi-AZ RDS | ❌ | ✅ |
+| Resource                | dev         | prod        |
+| ----------------------- | ----------- | ----------- |
+| VPC CIDR                | 10.0.0.0/16 | 10.1.0.0/16 |
+| ECR                     | ✅          | ✅          |
+| ALB + EC2               | ✅          | ✅          |
+| RDS MySQL               | ✅          | ✅          |
+| SSM Parameters          | ✅          | ✅          |
+| CloudWatch Alarms + SNS | ✅          | ✅          |
+| Multi-AZ RDS            | ❌          | ✅          |
 
 ---
 
 ## How to Deploy
 
 ### 사전 조건
+
 - Terraform >= 1.10.0
 - AWS CLI 설정 완료 (`aws configure`)
 - `terraform.tfvars` 파일에 변수 값 입력
@@ -131,6 +147,7 @@ jjajuka-infra/
 ### 배포 순서
 
 **1. 인증서 발급 (최초 1회)**
+
 ```bash
 cd envs/global
 terraform init
@@ -138,6 +155,7 @@ terraform apply
 ```
 
 **2. 환경 프로비저닝**
+
 ```bash
 cd envs/dev   # 또는 envs/prod
 terraform init
@@ -147,13 +165,13 @@ terraform apply
 
 ### 주요 변수 (`terraform.tfvars`)
 
-| Variable | Description |
-|---|---|
-| `ami` | EC2 AMI ID (Amazon Linux 2023) |
-| `MYSQL_USER` / `MYSQL_PASSWORD` | RDS 접속 정보 |
-| `discord_webhook_url` | 알림용 Discord Webhook |
-| `google_api_key` | AI 서비스용 Google API Key |
-| `alert_email` | CloudWatch 알림 수신 이메일 |
+| Variable                        | Description                    |
+| ------------------------------- | ------------------------------ |
+| `ami`                           | EC2 AMI ID (Amazon Linux 2023) |
+| `MYSQL_USER` / `MYSQL_PASSWORD` | RDS 접속 정보                  |
+| `discord_webhook_url`           | 알림용 Discord Webhook         |
+| `google_api_key`                | AI 서비스용 Google API Key     |
+| `alert_email`                   | CloudWatch 알림 수신 이메일    |
 
 > 민감한 변수는 `.gitignore`에 추가하거나 별도로 관리하세요.
 
@@ -188,28 +206,28 @@ EC2 CPU 과부하 및 상태 이상, RDS CPU/스토리지/연결 수에 대한 �
 
 Terraform으로 관리하지 않고 AWS 콘솔에서 수동으로 생성한 리소스입니다.
 
-| Resource | Description |
-|---|---|
-| OIDC Identity Provider | GitHub Actions → AWS 연동을 위한 OIDC Provider 및 IAM Role. AWS 자격증명 없이 아래 권한으로 CI/CD 수행 |
-| DNS (가비아) | `jjajuka.site` 도메인의 DNS 레코드를 가비아에서 직접 관리. ACM 인증서 DNS 검증용 CNAME 및 ALB 연결용 CNAME 설정 포함 |
+| Resource               | Description                                                                                                          |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| OIDC Identity Provider | GitHub Actions → AWS 연동을 위한 OIDC Provider 및 IAM Role. AWS 자격증명 없이 아래 권한으로 CI/CD 수행               |
+| DNS (가비아)           | `jjajuka.site` 도메인의 DNS 레코드를 가비아에서 직접 관리. ACM 인증서 DNS 검증용 CNAME 및 ALB 연결용 CNAME 설정 포함 |
 
 **OIDC Role 권한 (최소 권한 원칙 적용)**
 
-| Permission | 용도 |
-|---|---|
-| `ec2:DescribeInstances` | 배포 대상 EC2 인스턴스 ID 조회 |
-| `ecr:GetAuthorizationToken` | ECR 로그인 |
+| Permission                           | 용도                                               |
+| ------------------------------------ | -------------------------------------------------- |
+| `ec2:DescribeInstances`              | 배포 대상 EC2 인스턴스 ID 조회                     |
+| `ecr:GetAuthorizationToken`          | ECR 로그인                                         |
 | `ecr:BatchCheck / Upload / PutImage` | ECR 이미지 push (dev 레포지토리 3개로 리소스 한정) |
-| `ssm:SendCommand` | EC2에 docker pull / run 명령 원격 실행 |
-| `ssm:GetCommandInvocation` | SSM 명령 실행 결과 확인 |
+| `ssm:SendCommand`                    | EC2에 docker pull / run 명령 원격 실행             |
+| `ssm:GetCommandInvocation`           | SSM 명령 실행 결과 확인                            |
 
 **가비아 DNS 레코드 설정**
 
-| 구분 | 호스트 | 타입 | 값 |
-|---|---|---|---|
-| ACM 인증서 검증 | (ACM 콘솔에서 확인) | CNAME | (ACM 콘솔에서 확인) |
-| prod ALB 연결 | `@` (또는 `jjajuka.site`) | CNAME | prod ALB DNS 주소 |
-| dev ALB 연결 | `dev` | CNAME | dev ALB DNS 주소 |
+| 구분            | 호스트                    | 타입  | 값                  |
+| --------------- | ------------------------- | ----- | ------------------- |
+| ACM 인증서 검증 | (ACM 콘솔에서 확인)       | CNAME | (ACM 콘솔에서 확인) |
+| prod ALB 연결   | `@` (또는 `jjajuka.site`) | CNAME | prod ALB DNS 주소   |
+| dev ALB 연결    | `dev`                     | CNAME | dev ALB DNS 주소    |
 
 > ALB DNS 주소는 `terraform output` 또는 AWS 콘솔 → EC2 → Load Balancers에서 확인할 수 있습니다.
 > 수동 생성 리소스는 변경 시 이 문서에 반영해주세요.
@@ -223,10 +241,13 @@ Terraform으로 관리하지 않고 AWS 콘솔에서 수동으로 생성한 리�
 인스턴스가 userdata로 초기화될 때 `usermod -aG docker ssm-user` 명령이 실행되지만, ssm-user는 첫 SSM 세션 접속 시 생성되는 계정이라 **userdata 실행 시점에는 존재하지 않아** docker 그룹 추가가 실패합니다.
 
 **증상**
+
 - SSM Session Manager로 접속 후 `docker` 명령 실행 시 permission denied 발생
 
 **현재 임시 대응**
+
 - SSM 세션 접속 후 수동으로 아래 명령 실행
+
 ```bash
 sudo usermod -aG docker ssm-user
 ```
@@ -243,6 +264,7 @@ sudo usermod -aG docker ssm-user
 - Terraform state 파일을 로컬에서 관리 중 (Remote Backend 미적용)
 
 **개선 예정**
+
 - 구조적 분리 (모듈별 state 분리 또는 Terragrunt 도입 검토)
 - Remote Backend (S3 + DynamoDB) 적용 검토
 - **ASG (Auto Scaling Group) 전환**: 현재 EC2 단독 인스턴스 3개(frontend / app / ai)를 각각 ASG로 전환
