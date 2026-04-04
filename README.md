@@ -36,6 +36,7 @@ User
 | DNS / TLS | Route 53, ACM (Wildcard Certificate) |
 | Secret Management | SSM Parameter Store |
 | Access | AWS Systems Manager (Session Manager, no SSH) |
+| Monitoring | CloudWatch Alarms, SNS |
 
 ---
 
@@ -52,7 +53,8 @@ jjajuka-infra/
     ├── vpc/            # VPC, 서브넷, 라우팅
     ├── ecr/            # ECR 레포지토리 (frontend / backend / ai)
     ├── backend/        # EC2 인스턴스, ALB, Security Group, IAM
-    └── database/       # RDS MySQL, DB Subnet Group, Security Group
+    ├── database/       # RDS MySQL, DB Subnet Group, Security Group
+    └── monitoring/     # SNS Topic, CloudWatch Alarms (EC2 / RDS)
 ```
 
 각 환경(`dev`, `prod`)은 독립된 `terraform.tfstate`를 가지며, 동일한 모듈을 재사용합니다.
@@ -91,6 +93,17 @@ jjajuka-infra/
 - `jjajuka.site`, `*.jjajuka.site` 와일드카드 인증서 발급 (DNS 검증)
 - `global` 환경에서 한 번 발급 후, 각 환경에서 `data` 소스로 참조
 
+### `monitoring`
+- SNS Topic + 이메일 구독으로 알림 수신 채널 구성
+- EC2 알람 (frontend / app / ai 인스턴스 공통):
+  - CPU 사용률 > 80% (5분 평균, 2회 연속)
+  - StatusCheckFailed >= 1 (1분 간격, 2회 연속)
+- RDS 알람:
+  - CPU 사용률 > 80%
+  - FreeStorageSpace < 2GB
+  - DatabaseConnections > 100
+- 알람 복구 시에도 OK 알림 발송
+
 ---
 
 ## Environments
@@ -102,6 +115,7 @@ jjajuka-infra/
 | ALB + EC2 | ✅ | ✅ |
 | RDS MySQL | ✅ | ✅ |
 | SSM Parameters | ✅ | ✅ |
+| CloudWatch Alarms + SNS | ✅ | ✅ |
 | Multi-AZ RDS | ❌ | ✅ |
 
 ---
@@ -138,6 +152,7 @@ terraform apply
 | `MYSQL_USER` / `MYSQL_PASSWORD` | RDS 접속 정보 |
 | `discord_webhook_url` | 알림용 Discord Webhook |
 | `google_api_key` | AI 서비스용 Google API Key |
+| `alert_email` | CloudWatch 알림 수신 이메일 |
 
 > 민감한 변수는 `.gitignore`에 추가하거나 별도로 관리하세요.
 
@@ -159,6 +174,9 @@ GitHub Actions에서 AWS Access Key를 직접 발급하지 않고 OIDC(OpenID Co
 
 **SSM Parameter Store로 시크릿 관리**
 DB 접속 정보, API 키 등 민감한 값을 SSM Parameter Store(SecureString)에 저장하고, EC2 IAM 역할을 통해 런타임에 읽어옵니다.
+
+**CloudWatch Alarms + SNS로 장애 감지**
+EC2 CPU 과부하 및 상태 이상, RDS CPU/스토리지/연결 수에 대한 알람을 구성하고 SNS 이메일 구독으로 알림을 수신합니다. 알람 복구 시에도 OK 알림을 발송하여 정상화 여부를 확인할 수 있습니다. `terraform apply` 후 수신 이메일에서 구독 확인(Confirm subscription)이 필요합니다.
 
 ---
 

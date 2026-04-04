@@ -72,3 +72,14 @@ module "database" {
   multi_az              = var.multi_az
   app_security_group_id = module.backend.app_security_group_id
 }
+
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  app         = var.app
+  env         = var.env
+  alert_email = var.alert_email
+
+  instance_ids   = module.backend.instance_ids
+  rds_identifier = module.database.identifier
+}

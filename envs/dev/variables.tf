@@ -75,6 +75,12 @@ variable "multi_az" {
   default = false
 }
 
+# -- monitoring
+variable "alert_email" {
+  type        = string
+  description = "CloudWatch 알림 수신 이메일"
+}
+
 # -- ssm
 variable "discord_webhook_url" {
   type      = string
