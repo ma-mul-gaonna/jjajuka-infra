@@ -17,7 +17,7 @@
 
 ### CI/CD 파이프라인
 
-<img width="285" height="282" alt="Image" src="https://github.com/user-attachments/assets/466ccbc6-fcd6-4ba5-93cb-3d0301fd98cd" />
+<img width="446" height="482" alt="Image" src="https://github.com/user-attachments/assets/d4123894-76ff-4406-9928-1f49108fc9ce" />
 
 **트래픽 흐름**
 
