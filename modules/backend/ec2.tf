@@ -128,3 +128,11 @@ resource "aws_instance" "ai" {
   vpc_security_group_ids = [aws_security_group.ai.id]
   tags = merge(local.tags, { Name = "${local.prefix}-ai" })
 }
+
+# -- AI EIP
+resource "aws_eip" "ai" {
+  instance = aws_instance.ai.id
+  domain   = "vpc"
+
+  tags = merge(local.tags, { Name = "${local.prefix}-ai-eip" })
+}

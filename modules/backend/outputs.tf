@@ -17,3 +17,7 @@ output "instance_ids" {
 output "alb_dns_name" {
   value = aws_lb.this.dns_name
 }
+
+output "ai_eip" {
+  value = aws_eip.ai.public_ip
+}

@@ -81,6 +81,7 @@ jjajuka-infra/
   - Frontend SG ← ALB SG만 허용
   - Backend SG ← ALB SG만 허용 (지정 포트)
   - AI SG ← Backend SG만 허용 (내부 통신)
+- AI 인스턴스에 EIP 부착 (고정 퍼블릭 IP)
 - IAM Instance Profile: SSM Session Manager + ECR ReadOnly 권한만 부여 (최소 권한 원칙)
 - EC2 접속: SSH 키 없이 SSM Session Manager로만 접근
 
@@ -175,6 +176,9 @@ GitHub Actions에서 AWS Access Key를 직접 발급하지 않고 OIDC(OpenID Co
 **SSM Parameter Store로 시크릿 관리**
 DB 접속 정보, API 키 등 민감한 값을 SSM Parameter Store(SecureString)에 저장하고, EC2 IAM 역할을 통해 런타임에 읽어옵니다.
 
+**AI 서버 EIP 부착**
+Backend 서버가 AI 서버의 IP를 환경변수로 참조합니다. AI 인스턴스가 재시작되면 퍼블릭 IP가 바뀌어 Backend 환경변수를 수정하고 재배포해야 하는 문제가 발생합니다. EIP로 고정 IP를 부여하여 AI 서버가 재시작되어도 Backend 환경변수 변경 없이 통신이 유지됩니다. Internal ALB 구성도 검토했으나 해커톤 일정상 EIP로 간단하게 해결했습니다.
+
 **CloudWatch Alarms + SNS로 장애 감지**
 EC2 CPU 과부하 및 상태 이상, RDS CPU/스토리지/연결 수에 대한 알람을 구성하고 SNS 이메일 구독으로 알림을 수신합니다. 알람 복구 시에도 OK 알림을 발송하여 정상화 여부를 확인할 수 있습니다. `terraform apply` 후 수신 이메일에서 구독 확인(Confirm subscription)이 필요합니다.
 
@@ -212,6 +216,25 @@ Terraform으로 관리하지 않고 AWS 콘솔에서 수동으로 생성한 리�
 
 ---
 
+## 현재 발생하고 있는 이슈
+
+### `userdata` 실행 시 ssm-user docker 권한 미부여
+
+인스턴스가 userdata로 초기화될 때 `usermod -aG docker ssm-user` 명령이 실행되지만, ssm-user는 첫 SSM 세션 접속 시 생성되는 계정이라 **userdata 실행 시점에는 존재하지 않아** docker 그룹 추가가 실패합니다.
+
+**증상**
+- SSM Session Manager로 접속 후 `docker` 명령 실행 시 permission denied 발생
+
+**현재 임시 대응**
+- SSM 세션 접속 후 수동으로 아래 명령 실행
+```bash
+sudo usermod -aG docker ssm-user
+```
+
+**미해결**
+
+---
+
 ## Known Limitations
 
 - 환경별 `main.tf` 한 파일에 여러 모듈을 선언하는 구조로, 모든 리소스가 하나의 state로 관리됨
@@ -222,3 +245,7 @@ Terraform으로 관리하지 않고 AWS 콘솔에서 수동으로 생성한 리�
 **개선 예정**
 - 구조적 분리 (모듈별 state 분리 또는 Terragrunt 도입 검토)
 - Remote Backend (S3 + DynamoDB) 적용 검토
+- **ASG (Auto Scaling Group) 전환**: 현재 EC2 단독 인스턴스 3개(frontend / app / ai)를 각각 ASG로 전환
+  - 인스턴스 다운 시 자동 재시작
+  - 모니터링 알람/이벤트가 인스턴스 ID 고정이 아닌 ASG 단위로 동작하여 인스턴스 교체 후에도 자동 유지
+  - ALB 타겟그룹 자동 등록/해제
