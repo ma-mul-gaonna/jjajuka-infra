@@ -83,6 +83,13 @@ resource "aws_security_group" "ai" {
     security_groups = [aws_security_group.app.id]
   }
 
+  ingress {
+    from_port   = 8000
+    to_port     = 8000
+    protocol    = local.tcp_protocol
+    cidr_blocks = local.all_ips
+  }
+
   egress {
     from_port   = 0
     to_port     = 0

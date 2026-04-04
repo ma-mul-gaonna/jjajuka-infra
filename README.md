@@ -178,6 +178,26 @@ terraform apply
 
 ---
 
+## 설계 포인트
+
+- 프리티어 한도 내 비용 최소화
+- 개발환경은 단일 구성, 운영환경은 일부 이중화 (RDS Multi-AZ)
+- 보안 요건을 고려한 서브넷 분리 (Public/Private)
+- NAT Gateway 미사용으로 네트워크 비용 최소화 (인스턴스 Public 서브넷 배치), 
+  - 계층적 Security Group으로 인바운드 접근 제어
+
+- SSH 미오픈, SSM Session Manager로만 인스턴스 접근
+- 최소 권한 IAM
+- CloudWatch + EventBridge + SNS로 장애 감지 및 알림 구성
+
+### 보안 요건
+
+- DB 퍼블릭 노출 차단 → RDS Private Subnet 배치
+- HTTPS 적용 → ALB + ACM (Wildcard 인증서)
+- 시크릿 관리 → SSM Parameter Store
+
+---
+
 ## Design Decisions
 
 **SSH 미사용, SSM Session Manager로 접근**
@@ -257,7 +277,7 @@ sudo usermod -aG docker ssm-user
 
 ---
 
-## Known Limitations
+## 한계
 
 - 환경별 `main.tf` 한 파일에 여러 모듈을 선언하는 구조로, 모든 리소스가 하나의 state로 관리됨
   - 특정 리소스만 제거하려면 `-target` 옵션 필요 (`terraform destroy -target module.database`)

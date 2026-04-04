@@ -30,7 +30,7 @@ resource "aws_lb_target_group" "app" {
   vpc_id   = var.vpc_id
 
   health_check {
-    path = "/api/health-check"
+    path = "/api/health"
   }
 
   tags = merge(local.tags, { Name = "${local.prefix}-app-tg" })
