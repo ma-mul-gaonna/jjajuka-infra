@@ -63,7 +63,7 @@ jjajuka-infra/
     ├── ecr/            # ECR 레포지토리 (frontend / backend / ai)
     ├── backend/        # EC2 인스턴스, ALB, Security Group, IAM
     ├── database/       # RDS MySQL, DB Subnet Group, Security Group
-    └── monitoring/     # SNS Topic, CloudWatch Alarms (EC2 / RDS)
+    └── monitoring/     # SNS Topic, CloudWatch Alarms (EC2 / RDS), EventBridge
 ```
 
 각 환경(`dev`, `prod`)은 독립된 `terraform.tfstate`를 가지며, 동일한 모듈을 재사용합니다.
@@ -111,6 +111,7 @@ jjajuka-infra/
 ### `monitoring`
 
 - SNS Topic + 이메일 구독으로 알림 수신 채널 구성
+- EventBridge로 EC2 stopped / terminated 이벤트 감지 → SNS 알림
 - EC2 알람 (frontend / app / ai 인스턴스 공통):
   - CPU 사용률 > 80% (5분 평균, 2회 연속)
   - StatusCheckFailed >= 1 (1분 간격, 2회 연속)
