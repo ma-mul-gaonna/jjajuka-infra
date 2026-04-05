@@ -178,7 +178,7 @@ terraform apply
 
 ---
 
-## 설계 포인트
+## 📌 설계 포인트
 
 - 프리티어 한도 내 비용 최소화
 - 개발환경은 단일 구성, 운영환경은 일부 이중화 (RDS Multi-AZ)
@@ -198,7 +198,7 @@ terraform apply
 
 ---
 
-## Design Decisions
+## 📌 Design Decisions
 
 **SSH 미사용, SSM Session Manager로 접근**
 EC2에 SSH 포트(22)를 열지 않고 AWS SSM을 통해서만 접속합니다. 키 관리 부담을 없애고 접근 이력이 CloudTrail에 기록됩니다.
