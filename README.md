@@ -45,7 +45,7 @@ User
 | DNS / TLS         | 가비아, ACM (Wildcard Certificate)            |
 | Secret Management | SSM Parameter Store                           |
 | Access            | AWS Systems Manager (Session Manager, no SSH) |
-| Monitoring        | CloudWatch Alarms, SNS                        |
+| Monitoring        | CloudWatch Alarms, SNS, EventBridge           |
 
 ---
 
@@ -107,6 +107,23 @@ jjajuka-infra/
 
 - `jjajuka.site`, `*.jjajuka.site` 와일드카드 인증서 발급 (DNS 검증)
 - `global` 환경에서 한 번 발급 후, 각 환경에서 `data` 소스로 참조
+
+### `ssm` (각 환경 내 `ssm.tf`)
+
+Terraform으로 관리하지만 별도 모듈이 아닌 환경 디렉토리(`envs/dev`, `envs/prod`)에 직접 선언됩니다.
+
+EC2 애플리케이션이 런타임에 읽는 SSM Parameter Store 값을 생성합니다. 파라미터 경로 규칙: `/{app}/{env}/{KEY}`
+
+| Parameter | Type | 설명 | 사용 서버 |
+| --------------------------------- | ------------ | ---------------------------------- | --------- |
+| `/{app}/{env}/DB_HOST`            | String       | RDS 엔드포인트                     | Backend   |
+| `/{app}/{env}/DB_NAME`            | String       | DB명 (`{app}`)                     | Backend   |
+| `/{app}/{env}/DB_USERNAME`        | String       | DB 유저명                          | Backend   |
+| `/{app}/{env}/DB_PASSWORD`        | SecureString | DB 비밀번호 (암호화)               | Backend   |
+| `/{app}/{env}/DB_PORT`            | String       | DB 포트 (3306)                     | Backend   |
+| `/{app}/{env}/DISCORD_WEBHOOK_URL`| SecureString | Discord 알림 Webhook (암호화)      | Backend   |
+| `/{app}/{env}/AI_BASE_URL`        | String       | AI 서버 EIP 주소 (`http://<EIP>:8000`) | Backend   |
+| `/{app}/{env}/GOOGLE_API_KEY`     | SecureString | Google API Key (암호화)            | AI        |
 
 ### `monitoring`
 
@@ -241,6 +258,17 @@ Terraform으로 관리하지 않고 AWS 콘솔에서 수동으로 생성한 리�
 | `ecr:BatchCheck / Upload / PutImage` | ECR 이미지 push (dev 레포지토리 3개로 리소스 한정) |
 | `ssm:SendCommand`                    | EC2에 docker pull / run 명령 원격 실행             |
 | `ssm:GetCommandInvocation`           | SSM 명령 실행 결과 확인                            |
+
+**IAM User Group: `jjajuka-developer`**
+
+jiyeon, jihye, ujin, jyu 유저가 소속되어 있습니다.
+
+| Permission                                                                    | 용도                                                      |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `ec2:DescribeInstances`                                                       | EC2 인스턴스 목록 조회                                    |
+| `ssm:StartSession` (EC2, `tier=backend` 태그 조건)                            | SSM Session Manager로 backend EC2 접속                    |
+| `ssm:StartSession` (`AWS-StartPortForwardingSessionToRemoteHost` 도큐먼트)    | SSM 포트 포워딩 세션 시작                                 |
+| `ssm:TerminateSession` / `ssm:ResumeSession` (본인 세션만)                    | 본인이 시작한 SSM 세션 종료 및 재개                       |
 
 **가비아 DNS 레코드 설정**
 
