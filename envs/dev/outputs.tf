@@ -9,3 +9,7 @@ output "rds_host" {
 output "alb_dns_name" {
   value = module.backend.alb_dns_name
 }
+
+output "ai_eip" {
+  value = module.backend.ai_eip
+}

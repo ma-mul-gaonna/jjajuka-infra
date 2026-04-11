@@ -181,6 +181,17 @@ terraform plan
 terraform apply
 ```
 
+> **주의:** `terraform apply` 후 아래 순서로 AI EIP를 tfvars에 반영해야 합니다.
+>
+> ```bash
+> terraform output ai_eip
+> # 출력된 IP를 terraform.tfvars의 AI_BASE_URL에 입력
+> # AI_BASE_URL = "http://<출력된 EIP>:8000"
+> terraform apply
+> ```
+>
+> SSM Parameter Store의 `AI_BASE_URL`이 올바른 EIP로 업데이트됩니다.
+
 ### 주요 변수 (`terraform.tfvars`)
 
 | Variable                        | Description                    |
