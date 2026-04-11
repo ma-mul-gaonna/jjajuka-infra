@@ -39,10 +39,55 @@ resource "aws_iam_role_policy" "eventbridge_ec2" {
         ]
       },
       {
-        # SSM Automation이 내부적으로 EC2 API를 호출할 때 이 Role을 넘겨줘야 함
+        # SSM Automation이 EC2 API를 호출할 때 사용할 역할을 넘겨줌
         Effect   = "Allow"
         Action   = "iam:PassRole"
-        Resource = "arn:aws:iam::*:role/${var.app}-${var.env}-eventbridge-ec2-role"
+        Resource = aws_iam_role.ssm_ec2_automation.arn
+      }
+    ]
+  })
+}
+
+# -- SSM Automation용 IAM Role (SSM → EC2 정지/시작)
+resource "aws_iam_role" "ssm_ec2_automation" {
+  name = "${var.app}-${var.env}-ssm-ec2-automation-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "ssm.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+
+  tags = {
+    app     = var.app
+    env     = var.env
+    managed = "terraform"
+  }
+}
+
+resource "aws_iam_role_policy" "ssm_ec2_automation" {
+  name = "${var.app}-${var.env}-ssm-ec2-automation-policy"
+  role = aws_iam_role.ssm_ec2_automation.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:StopInstances",
+          "ec2:StartInstances",
+          "ec2:DescribeInstances",
+          "ec2:DescribeInstanceStatus"
+        ]
+        Resource = "*"
       }
     ]
   })
