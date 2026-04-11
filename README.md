@@ -114,16 +114,16 @@ Terraform으로 관리하지만 별도 모듈이 아닌 환경 디렉토리(`env
 
 EC2 애플리케이션이 런타임에 읽는 SSM Parameter Store 값을 생성합니다. 파라미터 경로 규칙: `/{app}/{env}/{KEY}`
 
-| Parameter | Type | 설명 | 사용 서버 |
-| --------------------------------- | ------------ | ---------------------------------- | --------- |
-| `/{app}/{env}/DB_HOST`            | String       | RDS 엔드포인트                     | Backend   |
-| `/{app}/{env}/DB_NAME`            | String       | DB명 (`{app}`)                     | Backend   |
-| `/{app}/{env}/DB_USERNAME`        | String       | DB 유저명                          | Backend   |
-| `/{app}/{env}/DB_PASSWORD`        | SecureString | DB 비밀번호 (암호화)               | Backend   |
-| `/{app}/{env}/DB_PORT`            | String       | DB 포트 (3306)                     | Backend   |
-| `/{app}/{env}/DISCORD_WEBHOOK_URL`| SecureString | Discord 알림 Webhook (암호화)      | Backend   |
-| `/{app}/{env}/AI_BASE_URL`        | String       | AI 서버 EIP 주소 (`http://<EIP>:8000`) | Backend   |
-| `/{app}/{env}/GOOGLE_API_KEY`     | SecureString | Google API Key (암호화)            | AI        |
+| Parameter                          | Type         | 설명                                   | 사용 서버 |
+| ---------------------------------- | ------------ | -------------------------------------- | --------- |
+| `/{app}/{env}/DB_HOST`             | String       | RDS 엔드포인트                         | Backend   |
+| `/{app}/{env}/DB_NAME`             | String       | DB명 (`{app}`)                         | Backend   |
+| `/{app}/{env}/DB_USERNAME`         | String       | DB 유저명                              | Backend   |
+| `/{app}/{env}/DB_PASSWORD`         | SecureString | DB 비밀번호 (암호화)                   | Backend   |
+| `/{app}/{env}/DB_PORT`             | String       | DB 포트 (3306)                         | Backend   |
+| `/{app}/{env}/DISCORD_WEBHOOK_URL` | SecureString | Discord 알림 Webhook (암호화)          | Backend   |
+| `/{app}/{env}/AI_BASE_URL`         | String       | AI 서버 EIP 주소 (`http://<EIP>:8000`) | Backend   |
+| `/{app}/{env}/GOOGLE_API_KEY`      | SecureString | Google API Key (암호화)                | AI        |
 
 ### `monitoring`
 
@@ -191,6 +191,7 @@ terraform apply
 > ```
 >
 > SSM Parameter Store의 `AI_BASE_URL`이 올바른 EIP로 업데이트됩니다.
+> 이후 deploy.sh 작성 후 배포 진행해주세요.
 
 ### 주요 변수 (`terraform.tfvars`)
 
@@ -211,7 +212,7 @@ terraform apply
 - 프리티어 한도 내 비용 최소화
 - 개발환경은 단일 구성, 운영환경은 일부 이중화 (RDS Multi-AZ)
 - 보안 요건을 고려한 서브넷 분리 (Public/Private)
-- NAT Gateway 미사용으로 네트워크 비용 최소화 (인스턴스 Public 서브넷 배치), 
+- NAT Gateway 미사용으로 네트워크 비용 최소화 (인스턴스 Public 서브넷 배치),
   - 계층적 Security Group으로 인바운드 접근 제어
 
 - SSH 미오픈, SSM Session Manager로만 인스턴스 접근
@@ -274,12 +275,12 @@ Terraform으로 관리하지 않고 AWS 콘솔에서 수동으로 생성한 리�
 
 jiyeon, jihye, ujin, jyu 유저가 소속되어 있습니다.
 
-| Permission                                                                    | 용도                                                      |
-| ----------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `ec2:DescribeInstances`                                                       | EC2 인스턴스 목록 조회                                    |
-| `ssm:StartSession` (EC2, `tier=backend` 태그 조건)                            | SSM Session Manager로 backend EC2 접속                    |
-| `ssm:StartSession` (`AWS-StartPortForwardingSessionToRemoteHost` 도큐먼트)    | SSM 포트 포워딩 세션 시작                                 |
-| `ssm:TerminateSession` / `ssm:ResumeSession` (본인 세션만)                    | 본인이 시작한 SSM 세션 종료 및 재개                       |
+| Permission                                                                 | 용도                                   |
+| -------------------------------------------------------------------------- | -------------------------------------- |
+| `ec2:DescribeInstances`                                                    | EC2 인스턴스 목록 조회                 |
+| `ssm:StartSession` (EC2, `tier=backend` 태그 조건)                         | SSM Session Manager로 backend EC2 접속 |
+| `ssm:StartSession` (`AWS-StartPortForwardingSessionToRemoteHost` 도큐먼트) | SSM 포트 포워딩 세션 시작              |
+| `ssm:TerminateSession` / `ssm:ResumeSession` (본인 세션만)                 | 본인이 시작한 SSM 세션 종료 및 재개    |
 
 **가비아 DNS 레코드 설정**
 
