@@ -64,7 +64,7 @@ resource "aws_cloudwatch_event_target" "ec2_stop" {
       var.instance_ids.app,
       var.instance_ids.ai,
     ]
-    AutomationAssumeRole = [aws_iam_role.ssm_ec2_automation.arn]
+    AutomationAssumeRole = aws_iam_role.ssm_ec2_automation.arn
   })
 }
 
@@ -79,7 +79,7 @@ resource "aws_cloudwatch_event_target" "ec2_start" {
       var.instance_ids.app,
       var.instance_ids.ai,
     ]
-    AutomationAssumeRole = [aws_iam_role.ssm_ec2_automation.arn]
+    AutomationAssumeRole = aws_iam_role.ssm_ec2_automation.arn
   })
 }
 
