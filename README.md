@@ -57,28 +57,35 @@ User
 
 ## 📌 Design Decisions
 
-**SSH 미사용, SSM Session Manager로 접근**
+**1. SSH 미사용, SSM Session Manager로 접근**
+
 EC2에 SSH 포트(22)를 열지 않고 AWS SSM을 통해서만 접속합니다. 키 관리 부담을 없애고 접근 이력이 CloudTrail에 기록됩니다.
 
-**RDS Private 서브넷 배치**
+**2. RDS Private 서브넷 배치**
+
 데이터베이스는 인터넷 라우팅이 없는 Private 서브넷에 배치하고, Backend EC2 Security Group에서만 접근을 허용합니다.
 
-**Security Group 계층 구조**
+**3. Security Group 계층 구조**
+
 ALB → Frontend/Backend → AI 방향으로만 통신을 허용하여, AI 서비스가 인터넷 또는 ALB에 직접 노출되지 않습니다.
 
-**GitHub Actions CD: OIDC + SSM Send Command**
+**4. GitHub Actions CD: OIDC + SSM Send Command**
+
 GitHub Actions에서 AWS Access Key를 직접 발급하지 않고 OIDC(OpenID Connect)로 임시 자격증명을 발급받습니다. ECR push 후 `ssm:SendCommand`로 EC2에 docker pull/run 명령을 원격 실행하여 배포합니다. OIDC Role의 권한은 dev ECR 레포지토리 3개와 SSM 명령 실행으로만 한정했습니다.
 
-**SSM Parameter Store로 시크릿 관리**
+**5. SSM Parameter Store로 시크릿 관리**
+
 DB 접속 정보, API 키 등 민감한 값을 SSM Parameter Store(SecureString)에 저장하고, EC2 IAM 역할을 통해 런타임에 읽어옵니다.
 
-**AI 서버 EIP 부착**
+**6. AI 서버 EIP 부착**
+
 Backend 서버가 AI 서버의 IP를 환경변수로 참조합니다. AI 인스턴스가 재시작되면 퍼블릭 IP가 바뀌어 Backend 환경변수를 수정하고 재배포해야 하는 문제가 발생합니다. EIP로 고정 IP를 부여하여 AI 서버가 재시작되어도 Backend 환경변수 변경 없이 통신이 유지됩니다. Internal ALB 구성도 검토했으나 해커톤 일정상 EIP로 간단하게 해결했습니다.
 
-**CloudWatch Alarms + SNS로 장애 감지**
+**7. CloudWatch Alarms + SNS로 장애 감지**
+
 EC2 CPU 과부하 및 상태 이상, RDS CPU/스토리지/연결 수에 대한 알람을 구성하고 SNS 이메일 구독으로 알림을 수신합니다. 알람 복구 시에도 OK 알림을 발송하여 정상화 여부를 확인할 수 있습니다. `terraform apply` 후 수신 이메일에서 구독 확인(Confirm subscription)이 필요합니다.
 
-**EC2/RDS 자동 정지·시작 스케줄러 (비용 절감)**
+**8. EC2/RDS 자동 정지·시작 스케줄러 (비용 절감)**
 
 RDS는 `EventBridge Rules → Lambda` 구조로 정상 동작한다. EC2는 처음에 `EventBridge Rules → SSM Automation → EC2` 구조로 설계했으나 끝내 동작하지 않았고, 원인도 명확히 파악하지 못했다.
 
