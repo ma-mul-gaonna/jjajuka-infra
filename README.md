@@ -9,7 +9,7 @@
 
 ### 인프라 아키텍처
 
-<img width="1103" height="894" alt="Image" src="https://github.com/user-attachments/assets/6eb15537-188c-438e-af26-7cb9c4b485c5" />
+<img width="1003" height="850" alt="Image" src="https://github.com/user-attachments/assets/60dcc7c6-3153-4919-98af-7abe9d89940f" />
 
 ### 네트워크 및 보안 구조
 
