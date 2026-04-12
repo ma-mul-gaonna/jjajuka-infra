@@ -28,11 +28,19 @@ resource "aws_cloudwatch_event_target" "ec2_state_sns" {
   arn  = aws_sns_topic.alerts.arn
 }
 
-# -- EC2 스케줄러 (SSM Automation)
-resource "aws_cloudwatch_event_rule" "ec2_stop" {
-  name                = "${var.app}-${var.env}-ec2-stop"
-  description         = "KST 01:00 EC2 정지"
-  schedule_expression = "cron(0 16 * * ? *)"
+# -- RDS Instance State-change Notification
+resource "aws_cloudwatch_event_rule" "rds_state_change" {
+  name        = "${var.app}-${var.env}-rds-state-change"
+  description = "RDS 인스턴스 정지 / 시작 감지"
+
+  event_pattern = jsonencode({
+    source      = ["aws.rds"]
+    detail-type = ["RDS DB Instance Event"]
+    detail = {
+      EventID          = ["RDS-EVENT-0087", "RDS-EVENT-0088"]
+      SourceIdentifier = [var.rds_identifier]
+    }
+  })
 
   tags = {
     app     = var.app
@@ -41,46 +49,9 @@ resource "aws_cloudwatch_event_rule" "ec2_stop" {
   }
 }
 
-resource "aws_cloudwatch_event_rule" "ec2_start" {
-  name                = "${var.app}-${var.env}-ec2-start"
-  description         = "KST 13:00 EC2 시작"
-  schedule_expression = "cron(0 4 * * ? *)"
-
-  tags = {
-    app     = var.app
-    env     = var.env
-    managed = "terraform"
-  }
-}
-
-resource "aws_cloudwatch_event_target" "ec2_stop" {
-  rule     = aws_cloudwatch_event_rule.ec2_stop.name
-  arn      = "arn:aws:ssm:ap-northeast-2::automation-definition/AWS-StopEC2Instance"
-  role_arn = aws_iam_role.eventbridge_ec2.arn
-
-  input = jsonencode({
-    InstanceId = [
-      var.instance_ids.frontend,
-      var.instance_ids.app,
-      var.instance_ids.ai,
-    ]
-    AutomationAssumeRole = aws_iam_role.ssm_ec2_automation.arn
-  })
-}
-
-resource "aws_cloudwatch_event_target" "ec2_start" {
-  rule     = aws_cloudwatch_event_rule.ec2_start.name
-  arn      = "arn:aws:ssm:ap-northeast-2::automation-definition/AWS-StartEC2Instance"
-  role_arn = aws_iam_role.eventbridge_ec2.arn
-
-  input = jsonencode({
-    InstanceId = [
-      var.instance_ids.frontend,
-      var.instance_ids.app,
-      var.instance_ids.ai,
-    ]
-    AutomationAssumeRole = aws_iam_role.ssm_ec2_automation.arn
-  })
+resource "aws_cloudwatch_event_target" "rds_state_sns" {
+  rule = aws_cloudwatch_event_rule.rds_state_change.name
+  arn  = aws_sns_topic.alerts.arn
 }
 
 # -- RDS 스케줄러 (Lambda)

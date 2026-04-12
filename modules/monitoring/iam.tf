@@ -1,6 +1,6 @@
-# -- EC2 스케줄러용 IAM Role (EventBridge → SSM Automation)
-resource "aws_iam_role" "eventbridge_ec2" {
-  name = "${var.app}-${var.env}-eventbridge-ec2-role"
+# -- EC2 스케줄러용 IAM Role (EventBridge Scheduler → EC2 API)
+resource "aws_iam_role" "scheduler_ec2" {
+  name = "${var.app}-${var.env}-scheduler-ec2-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -8,7 +8,7 @@ resource "aws_iam_role" "eventbridge_ec2" {
       {
         Effect = "Allow"
         Principal = {
-          Service = "events.amazonaws.com"
+          Service = "scheduler.amazonaws.com"
         }
         Action = "sts:AssumeRole"
       }
@@ -22,59 +22,9 @@ resource "aws_iam_role" "eventbridge_ec2" {
   }
 }
 
-resource "aws_iam_role_policy" "eventbridge_ec2" {
-  name = "${var.app}-${var.env}-eventbridge-ec2-policy"
-  role = aws_iam_role.eventbridge_ec2.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        # SSM Automation 문서 실행 허용
-        Effect  = "Allow"
-        Action  = "ssm:StartAutomationExecution"
-        Resource = [
-          "arn:aws:ssm:*:*:automation-definition/AWS-StopEC2Instance:*",
-          "arn:aws:ssm:*:*:automation-definition/AWS-StartEC2Instance:*"
-        ]
-      },
-      {
-        # SSM Automation이 EC2 API를 호출할 때 사용할 역할을 넘겨줌
-        Effect   = "Allow"
-        Action   = "iam:PassRole"
-        Resource = aws_iam_role.ssm_ec2_automation.arn
-      }
-    ]
-  })
-}
-
-# -- SSM Automation용 IAM Role (SSM → EC2 정지/시작)
-resource "aws_iam_role" "ssm_ec2_automation" {
-  name = "${var.app}-${var.env}-ssm-ec2-automation-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Service = "ssm.amazonaws.com"
-        }
-        Action = "sts:AssumeRole"
-      }
-    ]
-  })
-
-  tags = {
-    app     = var.app
-    env     = var.env
-    managed = "terraform"
-  }
-}
-
-resource "aws_iam_role_policy" "ssm_ec2_automation" {
-  name = "${var.app}-${var.env}-ssm-ec2-automation-policy"
-  role = aws_iam_role.ssm_ec2_automation.id
+resource "aws_iam_role_policy" "scheduler_ec2" {
+  name = "${var.app}-${var.env}-scheduler-ec2-policy"
+  role = aws_iam_role.scheduler_ec2.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -83,11 +33,9 @@ resource "aws_iam_role_policy" "ssm_ec2_automation" {
         Effect = "Allow"
         Action = [
           "ec2:StopInstances",
-          "ec2:StartInstances",
-          "ec2:DescribeInstances",
-          "ec2:DescribeInstanceStatus"
+          "ec2:StartInstances"
         ]
-        Resource = "*"
+        Resource = "arn:aws:ec2:ap-northeast-2:*:instance/*"
       }
     ]
   })
