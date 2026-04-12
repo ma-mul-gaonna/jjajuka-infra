@@ -42,10 +42,10 @@ User
 
 - SSH 미오픈, SSM Session Manager로만 인스턴스 접근
 - 최소 권한 IAM
-- CloudWatch + EventBridge + SNS로 장애 감지 및 알림 구성
+- CloudWatch, EventBridge Rules → SNS로 장애 감지 및 알림 구성
 - 개발 환경 비용 절감을 위한 EC2/RDS 자동 정지/시작 스케줄러 구성
   - EC2: EventBridge Scheduler → EC2 API 직접 호출
-  - RDS: EventBridge → Lambda
+  - RDS: EventBridge Rules → Lambda
 
 ### 보안 요건
 
@@ -80,12 +80,12 @@ EC2 CPU 과부하 및 상태 이상, RDS CPU/스토리지/연결 수에 대한 �
 
 **EC2/RDS 자동 정지·시작 스케줄러 (비용 절감)**
 
-RDS는 `EventBridge → Lambda` 구조로 정상 동작한다. EC2는 처음에 `EventBridge → SSM Automation → EC2` 구조로 설계했으나 끝내 동작하지 않았고, 원인도 명확히 파악하지 못했다.
+RDS는 `EventBridge Rules → Lambda` 구조로 정상 동작한다. EC2는 처음에 `EventBridge Rules → SSM Automation → EC2` 구조로 설계했으나 끝내 동작하지 않았고, 원인도 명확히 파악하지 못했다.
 
 돌이켜보면 이 설계 자체가 문제였다. 실제 요구사항은 **"특정 시간에 EC2를 껐다 켜기"** 라는 단순한 것이었는데, SSM Automation은 그 용도에 맞지 않았다.
 
 - 조건 분기, 승인 프로세스, 운영 Runbook이 필요한 상황이 아니었다
-- 디버깅 경로가 `EventBridge → IAM(EventBridge) → SSM Automation → IAM(SSM) → EC2 API` 로 실패 지점이 5개 이상이었고, 5시간 넘게 소요됐다
+- 디버깅 경로가 `EventBridge Rules → IAM(EventBridge) → SSM Automation → IAM(SSM) → EC2 API` 로 실패 지점이 5개 이상이었고, 4시간 넘게 소요됐다
 - SSM Automation을 도입해서 얻는 이점이 이 문제에서는 없었다
 
 단순한 문제를 너무 어렵게 풀려고 했다. 결국 `EventBridge Scheduler → EC2 API 직접 호출` 로 구조를 교체했고, IAM role 하나에 StopInstances/StartInstances 권한만 부여하는 형태로 단순화했다.
@@ -188,27 +188,29 @@ EC2 애플리케이션이 런타임에 읽는 SSM Parameter Store 값을 생성�
 ### `monitoring`
 
 - SNS Topic + 이메일 구독으로 알림 수신 채널 구성
-- EventBridge로 EC2 stopped / terminated 이벤트 감지 → SNS 알림
-- EventBridge로 RDS 상태 변경(정지/시작) 이벤트 감지 → SNS 알림 (EVENT-0087/0088)
-- EC2 알람 (frontend / app / ai 인스턴스 공통):
-  - CPU 사용률 > 80% (5분 평균, 2회 연속)
-  - StatusCheckFailed >= 1 (1분 간격, 2회 연속)
-- RDS 알람:
-  - CPU 사용률 > 80%
-  - FreeStorageSpace < 2GB
-  - DatabaseConnections > 100
-- 알람 복구 시에도 OK 알림 발송
+- **CloudWatch Alarms → SNS 직접**: CPU, StatusCheckFailed, RDS 스토리지/연결 수 등 메트릭 임계치 초과 시
+  - EC2 알람 (frontend / app / ai 공통): CPU > 80% (5분 평균, 2회 연속), StatusCheckFailed >= 1
+  - RDS 알람: CPU > 80%, FreeStorageSpace < 2GB, DatabaseConnections > 100
+  - 알람 복구 시에도 OK 알림 발송
+- **EventBridge Rules (`aws_cloudwatch_event_rule`) → SNS 직접**: 상태 변경 이벤트 감지
+  - EC2 stopped / terminated 이벤트 감지 (instance-id 기반 필터링)
+  - RDS 정지(EVENT-0087) / 시작(EVENT-0088) 이벤트 감지
+
+> CloudWatch와 EventBridge Rules는 각각 독립적으로 SNS에 직접 연결됩니다. CloudWatch → EventBridge → SNS 구조가 아닙니다.
 
 ### `scheduler` _(modules/monitoring 내 관리)_
 
 비용 절감을 위해 개발 환경 리소스를 야간에 자동 정지하고 낮에 재시작합니다.
 
-- **EC2**: EventBridge Scheduler → EC2 API 직접 호출
-  - 정지: KST 01:00 (`cron(0 1 * * ? *)`, Asia/Seoul 타임존)
-  - 시작: KST 13:00 (`cron(0 13 * * ? *)`, Asia/Seoul 타임존)
+- **EC2**: EventBridge Scheduler (`aws_scheduler_schedule`) → EC2 API 직접 호출 (`scheduler.tf`)
+  - 신규 스케줄 전용 서비스, `schedule_expression_timezone = "Asia/Seoul"` 지정 가능 (UTC 변환 불필요)
+  - 정지: KST 01:00 (`cron(0 1 * * ? *)`)
+  - 시작: KST 13:00 (`cron(0 13 * * ? *)`)
   - IAM: `scheduler_ec2` role (`scheduler.amazonaws.com`) — StopInstances/StartInstances 권한
-- **RDS**: EventBridge → Lambda (`rds_scheduler.py`)
-  - 프리-스타트: KST 12:50 (EC2 시작 전 DB 준비)
+- **RDS**: EventBridge Rules (`aws_cloudwatch_event_rule`, schedule_expression) → Lambda (`rds_scheduler.py`) (`eventbridge.tf`)
+  - 구형 EventBridge 방식, cron 표현식은 UTC 기준
+  - 정지: UTC 16:00 = KST 01:00 (`cron(0 16 * * ? *)`)
+  - 프리-스타트: UTC 03:50 = KST 12:50 (`cron(50 3 * * ? *)`)
 
 ---
 
