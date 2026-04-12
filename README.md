@@ -32,6 +32,66 @@ User
 
 ---
 
+## 📌 설계 포인트
+
+- 프리티어 한도 내 비용 최소화
+- 개발환경은 단일 구성, 운영환경은 일부 이중화 (RDS Multi-AZ)
+- 보안 요건을 고려한 서브넷 분리 (Public/Private)
+- NAT Gateway 미사용으로 네트워크 비용 최소화 (인스턴스 Public 서브넷 배치),
+  - 계층적 Security Group으로 인바운드 접근 제어
+
+- SSH 미오픈, SSM Session Manager로만 인스턴스 접근
+- 최소 권한 IAM
+- CloudWatch + EventBridge + SNS로 장애 감지 및 알림 구성
+- 개발 환경 비용 절감을 위한 EC2/RDS 자동 정지/시작 스케줄러 구성
+  - EC2: EventBridge Scheduler → EC2 API 직접 호출
+  - RDS: EventBridge → Lambda
+
+### 보안 요건
+
+- DB 퍼블릭 노출 차단 → RDS Private Subnet 배치
+- HTTPS 적용 → ALB + ACM (Wildcard 인증서)
+- 시크릿 관리 → SSM Parameter Store
+
+---
+
+## 📌 Design Decisions
+
+**SSH 미사용, SSM Session Manager로 접근**
+EC2에 SSH 포트(22)를 열지 않고 AWS SSM을 통해서만 접속합니다. 키 관리 부담을 없애고 접근 이력이 CloudTrail에 기록됩니다.
+
+**RDS Private 서브넷 배치**
+데이터베이스는 인터넷 라우팅이 없는 Private 서브넷에 배치하고, Backend EC2 Security Group에서만 접근을 허용합니다.
+
+**Security Group 계층 구조**
+ALB → Frontend/Backend → AI 방향으로만 통신을 허용하여, AI 서비스가 인터넷 또는 ALB에 직접 노출되지 않습니다.
+
+**GitHub Actions CD: OIDC + SSM Send Command**
+GitHub Actions에서 AWS Access Key를 직접 발급하지 않고 OIDC(OpenID Connect)로 임시 자격증명을 발급받습니다. ECR push 후 `ssm:SendCommand`로 EC2에 docker pull/run 명령을 원격 실행하여 배포합니다. OIDC Role의 권한은 dev ECR 레포지토리 3개와 SSM 명령 실행으로만 한정했습니다.
+
+**SSM Parameter Store로 시크릿 관리**
+DB 접속 정보, API 키 등 민감한 값을 SSM Parameter Store(SecureString)에 저장하고, EC2 IAM 역할을 통해 런타임에 읽어옵니다.
+
+**AI 서버 EIP 부착**
+Backend 서버가 AI 서버의 IP를 환경변수로 참조합니다. AI 인스턴스가 재시작되면 퍼블릭 IP가 바뀌어 Backend 환경변수를 수정하고 재배포해야 하는 문제가 발생합니다. EIP로 고정 IP를 부여하여 AI 서버가 재시작되어도 Backend 환경변수 변경 없이 통신이 유지됩니다. Internal ALB 구성도 검토했으나 해커톤 일정상 EIP로 간단하게 해결했습니다.
+
+**CloudWatch Alarms + SNS로 장애 감지**
+EC2 CPU 과부하 및 상태 이상, RDS CPU/스토리지/연결 수에 대한 알람을 구성하고 SNS 이메일 구독으로 알림을 수신합니다. 알람 복구 시에도 OK 알림을 발송하여 정상화 여부를 확인할 수 있습니다. `terraform apply` 후 수신 이메일에서 구독 확인(Confirm subscription)이 필요합니다.
+
+**EC2/RDS 자동 정지·시작 스케줄러 (비용 절감)**
+
+RDS는 `EventBridge → Lambda` 구조로 정상 동작한다. EC2는 처음에 `EventBridge → SSM Automation → EC2` 구조로 설계했으나 끝내 동작하지 않았고, 원인도 명확히 파악하지 못했다.
+
+돌이켜보면 이 설계 자체가 문제였다. 실제 요구사항은 **"특정 시간에 EC2를 껐다 켜기"** 라는 단순한 것이었는데, SSM Automation은 그 용도에 맞지 않았다.
+
+- 조건 분기, 승인 프로세스, 운영 Runbook이 필요한 상황이 아니었다
+- 디버깅 경로가 `EventBridge → IAM(EventBridge) → SSM Automation → IAM(SSM) → EC2 API` 로 실패 지점이 5개 이상이었고, 5시간 넘게 소요됐다
+- SSM Automation을 도입해서 얻는 이점이 이 문제에서는 없었다
+
+단순한 문제를 너무 어렵게 풀려고 했다. 결국 `EventBridge Scheduler → EC2 API 직접 호출` 로 구조를 교체했고, IAM role 하나에 StopInstances/StartInstances 권한만 부여하는 형태로 단순화했다.
+
+---
+
 ## Tech Stack
 
 | Category          | Tool / Service                                |
@@ -129,6 +189,7 @@ EC2 애플리케이션이 런타임에 읽는 SSM Parameter Store 값을 생성�
 
 - SNS Topic + 이메일 구독으로 알림 수신 채널 구성
 - EventBridge로 EC2 stopped / terminated 이벤트 감지 → SNS 알림
+- EventBridge로 RDS 상태 변경(정지/시작) 이벤트 감지 → SNS 알림 (EVENT-0087/0088)
 - EC2 알람 (frontend / app / ai 인스턴스 공통):
   - CPU 사용률 > 80% (5분 평균, 2회 연속)
   - StatusCheckFailed >= 1 (1분 간격, 2회 연속)
@@ -137,6 +198,17 @@ EC2 애플리케이션이 런타임에 읽는 SSM Parameter Store 값을 생성�
   - FreeStorageSpace < 2GB
   - DatabaseConnections > 100
 - 알람 복구 시에도 OK 알림 발송
+
+### `scheduler` _(modules/monitoring 내 관리)_
+
+비용 절감을 위해 개발 환경 리소스를 야간에 자동 정지하고 낮에 재시작합니다.
+
+- **EC2**: EventBridge Scheduler → EC2 API 직접 호출
+  - 정지: KST 01:00 (`cron(0 1 * * ? *)`, Asia/Seoul 타임존)
+  - 시작: KST 13:00 (`cron(0 13 * * ? *)`, Asia/Seoul 타임존)
+  - IAM: `scheduler_ec2` role (`scheduler.amazonaws.com`) — StopInstances/StartInstances 권한
+- **RDS**: EventBridge → Lambda (`rds_scheduler.py`)
+  - 프리-스타트: KST 12:50 (EC2 시작 전 DB 준비)
 
 ---
 
@@ -207,51 +279,6 @@ terraform apply
 
 ---
 
-## 📌 설계 포인트
-
-- 프리티어 한도 내 비용 최소화
-- 개발환경은 단일 구성, 운영환경은 일부 이중화 (RDS Multi-AZ)
-- 보안 요건을 고려한 서브넷 분리 (Public/Private)
-- NAT Gateway 미사용으로 네트워크 비용 최소화 (인스턴스 Public 서브넷 배치),
-  - 계층적 Security Group으로 인바운드 접근 제어
-
-- SSH 미오픈, SSM Session Manager로만 인스턴스 접근
-- 최소 권한 IAM
-- CloudWatch + EventBridge + SNS로 장애 감지 및 알림 구성
-
-### 보안 요건
-
-- DB 퍼블릭 노출 차단 → RDS Private Subnet 배치
-- HTTPS 적용 → ALB + ACM (Wildcard 인증서)
-- 시크릿 관리 → SSM Parameter Store
-
----
-
-## 📌 Design Decisions
-
-**SSH 미사용, SSM Session Manager로 접근**
-EC2에 SSH 포트(22)를 열지 않고 AWS SSM을 통해서만 접속합니다. 키 관리 부담을 없애고 접근 이력이 CloudTrail에 기록됩니다.
-
-**RDS Private 서브넷 배치**
-데이터베이스는 인터넷 라우팅이 없는 Private 서브넷에 배치하고, Backend EC2 Security Group에서만 접근을 허용합니다.
-
-**Security Group 계층 구조**
-ALB → Frontend/Backend → AI 방향으로만 통신을 허용하여, AI 서비스가 인터넷 또는 ALB에 직접 노출되지 않습니다.
-
-**GitHub Actions CD: OIDC + SSM Send Command**
-GitHub Actions에서 AWS Access Key를 직접 발급하지 않고 OIDC(OpenID Connect)로 임시 자격증명을 발급받습니다. ECR push 후 `ssm:SendCommand`로 EC2에 docker pull/run 명령을 원격 실행하여 배포합니다. OIDC Role의 권한은 dev ECR 레포지토리 3개와 SSM 명령 실행으로만 한정했습니다.
-
-**SSM Parameter Store로 시크릿 관리**
-DB 접속 정보, API 키 등 민감한 값을 SSM Parameter Store(SecureString)에 저장하고, EC2 IAM 역할을 통해 런타임에 읽어옵니다.
-
-**AI 서버 EIP 부착**
-Backend 서버가 AI 서버의 IP를 환경변수로 참조합니다. AI 인스턴스가 재시작되면 퍼블릭 IP가 바뀌어 Backend 환경변수를 수정하고 재배포해야 하는 문제가 발생합니다. EIP로 고정 IP를 부여하여 AI 서버가 재시작되어도 Backend 환경변수 변경 없이 통신이 유지됩니다. Internal ALB 구성도 검토했으나 해커톤 일정상 EIP로 간단하게 해결했습니다.
-
-**CloudWatch Alarms + SNS로 장애 감지**
-EC2 CPU 과부하 및 상태 이상, RDS CPU/스토리지/연결 수에 대한 알람을 구성하고 SNS 이메일 구독으로 알림을 수신합니다. 알람 복구 시에도 OK 알림을 발송하여 정상화 여부를 확인할 수 있습니다. `terraform apply` 후 수신 이메일에서 구독 확인(Confirm subscription)이 필요합니다.
-
----
-
 ## Manually Managed Resources
 
 Terraform으로 관리하지 않고 AWS 콘솔에서 수동으로 생성한 리소스입니다.
@@ -319,16 +346,26 @@ sudo usermod -aG docker ssm-user
 
 ## 한계
 
-- 환경별 `main.tf` 한 파일에 여러 모듈을 선언하는 구조로, 모든 리소스가 하나의 state로 관리됨
-  - 특정 리소스만 제거하려면 `-target` 옵션 필요 (`terraform destroy -target module.database`)
-  - 모듈이 추가될수록 환경별 변수 선언이 늘어남
-- Terraform state 파일을 로컬에서 관리 중 (Remote Backend 미적용)
+### 신뢰성 (Reliability)
 
-**개선 예정**
+- **EC2 단일 인스턴스**: ASG 없이 역할당 인스턴스 1개 — 장애 시 자동 복구 불가, 수동 재시작 필요. ALB 타겟그룹도 수동 관리
+- **RDS 백업 미설정**: `skip_final_snapshot = true` — `terraform destroy` 시 최종 스냅샷 없이 삭제됨
+- **단일 AZ 구성 (dev)**: AZ 장애 발생 시 서비스 전체 중단
+- **스케줄러 false positive**: EC2/RDS 자동 정지 시 EventBridge state-change 알람이 함께 발송됨 (정상 정지임에도 알림 수신)
 
-- 구조적 분리 (모듈별 state 분리 또는 Terragrunt 도입 검토)
-- Remote Backend (S3 + DynamoDB) 적용 검토
-- **ASG (Auto Scaling Group) 전환**: 현재 EC2 단독 인스턴스 3개(frontend / app / ai)를 각각 ASG로 전환
-  - 인스턴스 다운 시 자동 재시작
-  - 모니터링 알람/이벤트가 인스턴스 ID 고정이 아닌 ASG 단위로 동작하여 인스턴스 교체 후에도 자동 유지
-  - ALB 타겟그룹 자동 등록/해제
+### 성능 효율성 (Performance Efficiency)
+
+- **수평 확장 불가**: ASG 미구성으로 트래픽 급증 시 인스턴스 타입 수동 변경만 가능
+- **AI 서버 단일 장애점**: Backend → AI 통신이 EIP 직접 호출 방식 — Internal ALB 없이 AI 인스턴스 1대에 의존
+- **고정 인스턴스 타입**: t3.small 고정으로 부하에 따른 탄력적 조정 불가
+
+### 비용 최적화 (Cost Optimization)
+
+- **EIP 정지 중 요금 발생**: EC2 정지 시간(야간)에도 연결되지 않은 EIP에 대해 시간당 /bin/zsh.005 요금 부과
+- **RDS gp2 스토리지**: gp3 전환 시 동일 성능에 약 20% 비용 절감 가능
+- **CloudWatch 로그 보존 기간 미설정**: Lambda 로그 그룹에 보존 기간 미지정 시 무기한 보관으로 비용 증가 가능
+
+### 운영 구조
+
+- 환경별 `main.tf` 단일 state로 모든 리소스 관리 — 특정 리소스만 제거 시 `-target` 필요 (`terraform destroy -target module.database`)
+- Terraform state 로컬 관리 — 추후 협업 및 동시 작업 불가, Remote Backend 전환 검토 필요
