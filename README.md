@@ -203,7 +203,7 @@ EC2 애플리케이션이 런타임에 읽는 SSM Parameter Store 값을 생성�
   - EC2 stopped / terminated 이벤트 감지 (instance-id 기반 필터링)
   - RDS 정지(EVENT-0087) / 시작(EVENT-0088) 이벤트 감지
 
-> CloudWatch와 EventBridge Rules는 각각 독립적으로 SNS에 직접 연결됩니다. CloudWatch → EventBridge → SNS 구조가 아닙니다.
+> CloudWatch와 EventBridge Rules는 각각 독립적으로 SNS에 직접 연결
 
 ### `scheduler` _(modules/monitoring 내 관리)_
 
@@ -291,11 +291,6 @@ terraform apply
 ## Manually Managed Resources
 
 Terraform으로 관리하지 않고 AWS 콘솔에서 수동으로 생성한 리소스입니다.
-
-| Resource               | Description                                                                                                          |
-| ---------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| OIDC Identity Provider | GitHub Actions → AWS 연동을 위한 OIDC Provider 및 IAM Role. AWS 자격증명 없이 아래 권한으로 CI/CD 수행               |
-| DNS (가비아)           | `jjajuka.site` 도메인의 DNS 레코드를 가비아에서 직접 관리. ACM 인증서 DNS 검증용 CNAME 및 ALB 연결용 CNAME 설정 포함 |
 
 **OIDC Role 권한 (최소 권한 원칙 적용)**
 
