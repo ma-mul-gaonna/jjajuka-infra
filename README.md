@@ -87,15 +87,16 @@ EC2 CPU 과부하 및 상태 이상, RDS CPU/스토리지/연결 수에 대한 �
 
 **8. EC2/RDS 자동 정지·시작 스케줄러 (비용 절감)**
 
-RDS는 `EventBridge Rules → Lambda` 구조로 정상 동작한다. EC2는 처음에 `EventBridge Rules → SSM Automation → EC2` 구조로 설계했으나 끝내 동작하지 않았고, 원인도 명확히 파악하지 못했다.
+RDS는 `EventBridge Rules → Lambda` 구조로 정상 동작합니다. 그러나 EC2는 처음에 `EventBridge Rules → SSM Automation → EC2` 구조로 설계했으나 끝내 동작하지 않았고, 원인도 명확히 파악하지 못했습니다.
 
-돌이켜보면 이 설계 자체가 문제였다. 실제 요구사항은 **"특정 시간에 EC2를 껐다 켜기"** 라는 단순한 것이었는데, SSM Automation은 그 용도에 맞지 않았다.
+돌이켜보면 이 설계 자체가 문제였습니다.
+실제 요구사항은 **"특정 시간에 EC2를 껐다 켜기"** 라는 단순한 것이었는데, SSM Automation은 그 용도에 맞지 않았습니다.
 
 - 조건 분기, 승인 프로세스, 운영 Runbook이 필요한 상황이 아니었다
 - 디버깅 경로가 `EventBridge Rules → IAM(EventBridge) → SSM Automation → IAM(SSM) → EC2 API` 로 실패 지점이 5개 이상이었고, 4시간 넘게 소요됐다
 - SSM Automation을 도입해서 얻는 이점이 이 문제에서는 없었다
 
-단순한 문제를 너무 어렵게 풀려고 했다. 결국 `EventBridge Scheduler → EC2 API 직접 호출` 로 구조를 교체했고, IAM role 하나에 StopInstances/StartInstances 권한만 부여하는 형태로 단순화했다.
+단순한 문제를 너무 어렵게 풀려고 했습니다. 결국 `EventBridge Scheduler → EC2 API 직접 호출` 로 구조를 교체했고, IAM role 하나에 StopInstances/StartInstances 권한만 부여하는 형태로 단순화했습니다.
 
 ---
 
@@ -201,7 +202,7 @@ EC2 애플리케이션이 런타임에 읽는 SSM Parameter Store 값을 생성�
   - 알람 복구 시에도 OK 알림 발송
 - **EventBridge Rules (`aws_cloudwatch_event_rule`) → SNS 직접**: 상태 변경 이벤트 감지
   - EC2 stopped / terminated 이벤트 감지 (instance-id 기반 필터링)
-  - RDS 정지(EVENT-0087) / 시작(EVENT-0088) 이벤트 감지
+  - RDS 정지 / 시작 이벤트 감지
 
 > CloudWatch와 EventBridge Rules는 각각 독립적으로 SNS에 직접 연결
 
@@ -304,7 +305,7 @@ Terraform으로 관리하지 않고 AWS 콘솔에서 수동으로 생성한 리�
 
 **IAM User Group: `jjajuka-developer`**
 
-jiyeon, jihye, ujin, jyu 유저가 소속되어 있습니다.
+jiyeon, jihye, ujin, kyu 유저가 소속되어 있습니다.
 
 | Permission                                                                 | 용도                                   |
 | -------------------------------------------------------------------------- | -------------------------------------- |
@@ -315,14 +316,13 @@ jiyeon, jihye, ujin, jyu 유저가 소속되어 있습니다.
 
 **가비아 DNS 레코드 설정**
 
-| 구분            | 호스트                    | 타입  | 값                  |
-| --------------- | ------------------------- | ----- | ------------------- |
-| ACM 인증서 검증 | (ACM 콘솔에서 확인)       | CNAME | (ACM 콘솔에서 확인) |
-| prod ALB 연결   | `@` (또는 `jjajuka.site`) | CNAME | prod ALB DNS 주소   |
-| dev ALB 연결    | `dev`                     | CNAME | dev ALB DNS 주소    |
+| 구분            | 호스트              | 타입  | 값                  |
+| --------------- | ------------------- | ----- | ------------------- |
+| ACM 인증서 검증 | (ACM 콘솔에서 확인) | CNAME | (ACM 콘솔에서 확인) |
+| prod ALB 연결   | `@`                 | CNAME | prod ALB DNS 주소   |
+| dev ALB 연결    | `dev`               | CNAME | dev ALB DNS 주소    |
 
 > ALB DNS 주소는 `terraform output` 또는 AWS 콘솔 → EC2 → Load Balancers에서 확인할 수 있습니다.
-> 수동 생성 리소스는 변경 시 이 문서에 반영해주세요.
 
 ---
 
@@ -365,7 +365,7 @@ sudo usermod -aG docker ssm-user
 
 ### 비용 최적화 (Cost Optimization)
 
-- **EIP 정지 중 요금 발생**: EC2 정지 시간(야간)에도 연결되지 않은 EIP에 대해 시간당 /bin/zsh.005 요금 부과
+- **EIP 정지 중 요금 발생**: EC2 정지 시간(야간)에도 연결되지 않은 EIP에 대해 시간당 요금 부과
 - **RDS gp2 스토리지**: gp3 전환 시 동일 성능에 약 20% 비용 절감 가능
 - **CloudWatch 로그 보존 기간 미설정**: Lambda 로그 그룹에 보존 기간 미지정 시 무기한 보관으로 비용 증가 가능
 
